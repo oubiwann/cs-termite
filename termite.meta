@@ -1,0 +1,10 @@
+((egg "termite.egg")
+ (files "data.scm" "deftype.scm" "gambit-glue.scm" "match-support.scm"
+ "match.scm" "recv.scm" "termite#.scm" "termite-chicken.scm"
+ "termite.scm" "uuid.scm" "benchmarks" "examples" "test" "otp")
+ (doc-from-wiki)
+ (needs mailbox mailbox-threads defstruct)
+ (license "LGPL")
+ (category lang-exts)
+ (author "Gulliaume Germain, ported to chicken by Christian Kellermann")
+ (synopsis "Erlang style concurrency for chicken scheme"))
