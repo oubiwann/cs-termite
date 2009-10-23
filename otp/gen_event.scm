@@ -7,9 +7,7 @@
 ;;; CALL      :: args   state  -> reply state
 ;;; TERMINATE :: reason state  -> void
 
-(define-type event-handler
-  id: 1d3007b8-c5aa-4090-ab55-e352040a4498
-  read-only:
+(define-record event-handler
   init
   notify
   call
@@ -67,13 +65,13 @@
     em))
 
 (define (event-manager:start 
-          #!key (name 'anonymous-event-manager)
-          #!rest handlers )
+          #!rest handlers
+          #!key (name 'anonymous-event-manager))
   (internal-event-manager-start spawn handlers name))
 
 (define (event-manager:start-link 
-          #!key (name 'anonymous-linked-event-manager)
-          #!rest handlers )
+          #!rest handlers
+          #!key (name 'anonymous-linked-event-manager))
   (internal-event-manager-start spawn-link handlers name))
 
 (define (event-manager:add-handler event-manager handler . args)

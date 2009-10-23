@@ -7,9 +7,7 @@
 ;;; CAST      :: term   state -> state
 ;;; TERMINATE :: reason state -> void
 
-(define-type server-plugin
-  id: 2ca2d07c-5d6a-44a8-98eb-422b2b8e7296
-  read-only:
+(define-record server-plugin
   init
   call
   cast
@@ -48,7 +46,7 @@
   (internal-server-start spawn plugin args name))
 
 (define (server:start-link plugin args #!key (name 'anonymous-linked-generic-server))
-  (internal-server-start spawn-link plugin args))
+  (internal-server-start spawn-link plugin args name))
 
 (define (server:call server term)
   (!? server (list 'call term) *server-timeout*))

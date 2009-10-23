@@ -1,16 +1,17 @@
 ;; Copyright (C) 2005-2009 by Guillaume Germain, All Rights Reserved.
 ;; File: "termite.scm"
 
-;; this is the main file for the Termite system
-(##namespace ("termite#"))
-
-(##include "~~/lib/gambit#.scm")
-(##include "termite#.scm")
-
-(declare
-  (standard-bindings)
-  (extended-bindings)
-  (block))
+;(cond-expand
+;   (gambit 
+;      ;; this is the main file for the Termite system
+;      (##namespace ("termite#"))
+;
+;      (##include "~~/lib/gambit#.scm")
+;      (##include "termite#.scm")
+;      (declare
+;        (standard-bindings)
+;        (extended-bindings)
+;        (block)) ))
 
 ;; ----------------------------------------------------------------------------
 ;; System configuration & global data
@@ -32,10 +33,8 @@
 
 ;; TODO Improve this
 (define (formatted-current-time) 
-  (let* ((port (open-process "date"))
-		 (time (read-line port)))
-	(close-port port)
-	time))
+  (with-output-to-string 
+     (with-input-from-pipe "date" read-line)))
 
 ;; ----------------------------------------------------------------------------
 ;; Datatypes
@@ -45,22 +44,19 @@
 (define (process-links-set! pid obj) (thread-specific-set! pid obj))
 
 ;; universal pid
-(define-type upid
-  id: 9e096e09-8c66-4058-bddb-e061f2209838
+(define-record upid
   tag
   node)
 
 ;; nodes
-(define-type node
-  id: 8992144e-4f3e-4ce4-9d01-077576f98bc5
-  read-only:
+(define-record node
   host
   port)
 
 ;; tags
-(define-type tag
-  id: efa4f5f8-c74c-465b-af93-720d44a08374
-  (uuid init: #f))
+(defstruct tag
+  (uuid (make-uuid)))
+
 
 ;; * Test whether 'obj' is a pid.
 (define (pid? obj)
@@ -68,8 +64,7 @@
 
 
 ;; NOTE It might be better to integrate with Gambit's exception mechanism
-(define-type termite-exception
-  id: 6a3a285f-02c4-49ac-b00a-aa57b1ad02cf
+(define-record termite-exception
   origin
   reason
   object)
@@ -92,7 +87,8 @@
                   (list
                     (call-with-output-string ""
                       (lambda (port)
-                        (display-exception-in-context e k port))))))))
+			 ((begin (print "Exception: ")(write e) (write k))))))))))
+                       ; (display-exception-in-context e k port))))))))
         (cond
           ;; Propagated Termite exception?
           ((termite-exception? e)
@@ -187,7 +183,7 @@
 ;; * Wait for the end of a process 'pid'.  Does not return anything.
 ;; Warning: will not work on remote processes.
 (define (%wait-for pid)
-  (with-exception-catcher
+  (with-exception-handler
 	(lambda (e)
 	  (void))
 	(lambda ()
@@ -198,7 +194,7 @@
 ;; Check whether the process 'pid' is still alive.  Warning: will not
 ;; work on remote processes.
 (define (%alive? pid)
-  (with-exception-catcher
+  (with-exception-handler
 	(lambda (e)
 	  (join-timeout-exception? e))
 	(lambda ()
@@ -376,25 +372,15 @@
 ;; Termite I/O
 
 ;; Wraps 'pid's representing Gambit output ports.
-(define-type termite-output-port
-  id: b0c30401-474c-4e83-94b4-d516e00fe363
-  unprintable:
+(define-record termite-output-port
   pid)
 
 ;; Wraps 'pid's representing Gambit input ports.
-(define-type termite-input-port
-  id: ebb22fcb-ca61-4765-9896-49e6716471c3
-  unprintable:
+(define-record termite-input-port
   pid)
 
 ;; Start a process representing a Gambit output port.
 (define (spawn-output-port port #!optional (serialize? #f))
-  (output-port-readtable-set!
-	port
-	(readtable-sharing-allowed?-set
-	  (output-port-readtable port)
-	  serialize?))
-
   (make-termite-output-port
 	(spawn
 	  (lambda ()
@@ -409,12 +395,6 @@
 
 ;; Start a process representing a Gambit input port.
 (define (spawn-input-port port #!optional (serialize? #f))
-  (input-port-readtable-set!
-	port
-	(readtable-sharing-allowed?-set
-	  (input-port-readtable port)
-	  serialize?))
-
   (make-termite-input-port
 	(spawn
 	  (lambda ()
@@ -431,8 +411,8 @@
 ;; (define current-termite-input-port (make-parameter #f))
 ;; (define current-termite-output-port (make-parameter #f))
 
-;; insert IO overrides
-;; (include "termiteio.scm")
+; insert IO overrides
+; (include "termiteio.scm")
 
 
 ;; ----------------------------------------------------------------------------
@@ -589,14 +569,13 @@
 ;; a tcp server listens on a certain port for new tcp connection
 ;; requests, and call ON-CONNECT to deal with those new connections.
 (define (start-tcp-server tcp-port-number on-connect)
-  (let ((tcp-server-port
-		  (open-tcp-server (list
-							 port-number: tcp-port-number
-							 coalesce: #f))))
+  (let ((tcp-listener
+		  (tcp-listen tcp-port-number)))
 	(spawn
 	  (lambda ()
 		(let loop () 
-		  (on-connect (read tcp-server-port)) ;; io override
+                  (receive (in out) (tcp-accept tcp-listener)
+		   (on-connect in out)) ;; io override
 		  (loop)))
       name: 'termite-tcp-server)))
 
@@ -609,19 +588,16 @@
   ;; (print "OUTBOUND connection established\n")
   (spawn
 	(lambda ()
-	  (with-exception-catcher
+	  (with-exception-handler
 		(lambda (e)
 		  (! dispatcher (list 'unregister (self)))
 		  (shutdown!))
 
 		(lambda ()
-		  (let ((socket (open-tcp-client
-						  (list server-address: (node-host node)
-								port-number:    (node-port node)
-								coalesce:       #f))))
+		  (receive (inport outport) (tcp-connect (node-host node) (node-port node))
 			;; the real interesting part
-			(let ((in  (start-serializing-active-input-port socket (self)))
-				  (out (start-serializing-output-port socket)))
+			(let ((in  (start-serializing-active-input-port inport (self)))
+				  (out (start-serializing-output-port outport)))
 
 			  (! out (list 'write (current-node)))
 
@@ -631,18 +607,18 @@
 
 ;; start a MESSENGER for an 'inbound' connection (another node
 ;; initiated the bidirectional connection, see initiate-messenger)
-(define (start-messenger socket)
+(define (start-messenger inport outport)
   ;; (print "INBOUND connection established\n")
   (spawn
 	(lambda ()
-	  (with-exception-catcher
+	  (with-exception-handler
 		(lambda (e)
 		  (! dispatcher (list 'unregister (self)))
 		  (shutdown!))
 
 		(lambda ()
-		  (let ((in  (start-serializing-active-input-port socket (self)))
-				(out (start-serializing-output-port socket)))
+		  (let ((in  (start-serializing-active-input-port inport (self)))
+				(out (start-serializing-output-port outport)))
 			(recv
 			  ((,in node)
 			   ;; registering messenger to local dispatcher

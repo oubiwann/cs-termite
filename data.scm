@@ -14,8 +14,8 @@
 ;; ----------------------------------------------------------------------------
 ;; Cells
 
-(define (make-cell #!key (name (data-make-process-name 'cell))
-                   #!rest content)
+(define (make-cell #!rest content
+                   #!key (name (data-make-process-name 'cell)))
   (spawn
     (lambda ()
       (let loop ((content (if (pair? content)

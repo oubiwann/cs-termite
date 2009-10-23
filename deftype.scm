@@ -2,7 +2,12 @@
 ;;
 ;; Mutable record created with this are implemented as processes.
 
-(define-macro (define-termite-type type id tag . fields)
+;;(define-macro (define-termite-type type id tag . fields)
+(define-syntax (define-termite-type body r c)
+  (let ((type (cadr body))
+        (id (caddr body))
+        (tag (cadddr body))
+        (fields (cadddr (cdr body))))
 
   (define (symbol-append . symbols)
     (string->symbol
@@ -30,7 +35,7 @@
                          (make-setter type field)) 
                        fields))
          
-         (internal-type (gensym type))
+         (internal-type (r 'type))
          (internal-maker (make-maker internal-type))
          (internal-getters (map (lambda (field) 
                                   (make-getter internal-type field))
@@ -39,55 +44,55 @@
                                   (make-setter internal-type field))
                                 fields))
          
-         (facade-maker (gensym maker))
-         (plugin (gensym (symbol-append type '-plugin)))
+         (facade-maker (r 'maker))
+         (plugin (r '(symbol-append type '-plugin)))
          
-         (pid (gensym 'pid)))
+         (pid (r 'pid)))
     
-    `(begin
-       (define-type ,type
+    `(,(r 'begin)
+       (,(r 'define-record) ,type
          id: ,tag
          constructor: ,facade-maker
          unprintable:
          ,pid)
        
-       (define-type ,internal-type
+       (,(r 'define-record) ,internal-type
          ,@fields)
        
-       (define ,plugin
-         (make-server-plugin
+       (,(r 'define) ,plugin
+         (,(r 'make-server-plugin)
           ;; init
-          (lambda (args)
-            (apply ,internal-maker args))
+          (,(r 'lambda) ,(r 'args)
+            (,(r 'apply) ,internal-maker ,(r 'args)))
           ;; call
-          (lambda (term state)
-            (match term
-              ,@(map (lambda (getter internal-getter)
-                       `(',getter (values (,internal-getter state) state)))
+          (,(r 'lambda) (term state)
+            (,(r 'match) term
+              ,@((r 'map) ((r 'lambda) ((r 'getter) internal-getter)
+                       `(',(r 'getter) (,(r 'values) (,internal-getter state) state)))
                      getters
                      internal-getters)))
           ;; cast
-          (lambda (term state)
-            (match term
-              ,@(map (lambda (setter internal-setter)
+          (,(r 'lambda) (term state)
+            (,(r 'match) term
+              ,@((r 'map) ((r 'lambda) (setter internal-setter)
                        `((',setter x) (,internal-setter state x) state))
                      setters
                      internal-setters)))
           ;; terminate
-          (lambda (reason state)
+          (,(r 'lambda) (reason state)
             (void))))
        
-       (define (,maker ,@fields)
+       (,(r 'define) (,maker ,@fields)
          (,facade-maker (server:start ,plugin (list ,@fields) name: ',type)))
        
-       ,@(map (lambda (getter)
-                `(define (,getter x)
-                   (server:call (,(make-getter type pid) x) 
+       ,@((r 'map) (lambda (getter)
+                `(,(r 'define) (,getter x)
+                   ((,r 'server:call) (,(make-getter type pid) x) 
                                 ',getter)))
               getters)
 
-       ,@(map (lambda (setter)
-                `(define (,setter x value)
-                   (server:cast (,(make-getter type pid) x) 
-                                (list ',setter value))))
-              setters))))
+       ,@((r 'map) ((r 'lambda) (setter)
+                `(,(r 'define) (,setter x value)
+                   (,(r 'server:cast) (,(make-getter type pid) x) 
+                                (,(r 'list) ',setter value))))
+              setters)))))
