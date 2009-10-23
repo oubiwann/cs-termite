@@ -1,0 +1,8 @@
+(compile -s termite-chicken.scm -o termite.so -j termite)
+(compile -s termite.import.scm)
+
+(install-extension
+   'termite
+   '("termite.so" "termite.import.so")
+   '((version 1.0)
+     (documentation "README")))
