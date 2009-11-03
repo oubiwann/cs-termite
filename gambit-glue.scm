@@ -25,7 +25,10 @@
 (define (random-source-randomize! dontcare)
    (randomize))
 
-(define make-table chicken:make-dict)
+(define (make-table #!key size init weak-keys weak-values test hash min-load max-load)
+  (apply chicken:make-dict (cons (or test equal?) (if size (list size) '()))))
+
+
 (define table->list chicken:dict->alist)
 (define table-set! chicken:dict-set!)
 (define table-ref chicken:dict-ref)
