@@ -69,7 +69,7 @@
    (else '())))
 
 ;; remove duplicates (bad name...)
-(define (delete-duplicates lst)
+(define (termite-delete-duplicates lst)
   (cond
    ((null? lst)
     '())
@@ -78,7 +78,7 @@
     (delete-duplicates (cdr lst)))
    (else
     (cons (car lst)
-	  (delete-duplicates (cdr lst))))))
+	  (termite-delete-duplicates (cdr lst))))))
 
 ;; compile-pattern-match: generate the code for the pattern matching
 ;;
@@ -372,7 +372,7 @@
 
 					  (let ((code-label (gensym))
 							(var-list 
-							  (delete-duplicates
+							  (termite-delete-duplicates
 								(tree-filter 
 								  (lambda (t)
 									(and (symbol? t)
