@@ -6,5 +6,6 @@
  (needs s11n mailbox mailbox-threads defstruct lookup-table)
  (license "LGPL")
  (category lang-exts)
+ (hidden #t)
  (author "Gulliaume Germain, ported to chicken by Christian Kellermann")
  (synopsis "Erlang style concurrency for chicken scheme"))
