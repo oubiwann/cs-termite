@@ -3,7 +3,7 @@
  (doc-from-wiki)
  (needs s11n mailbox mailbox-threads defstruct lookup-table)
  (license "LGPL")
- (category lang-exts)
+ (category obsolete)
  (hidden)
  (author "Gulliaume Germain, ported to chicken by Christian Kellermann")
  (synopsis "Erlang style concurrency for chicken scheme"))
